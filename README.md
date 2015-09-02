@@ -1,4 +1,4 @@
-picadastra
+picadastra [![Build Status](https://travis-ci.org/fawick/picadastra.svg?branch=master)](https://travis-ci.org/fawick/picadastra)
 =========
 
 A simple photo importing tool that automatically sorts the photos into date-based folders.
