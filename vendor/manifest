@@ -1,0 +1,19 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/rwcarlsen/goexif/exif",
+			"repository": "https://github.com/rwcarlsen/goexif",
+			"revision": "709fab3d192d7c62f86043caff1e7e3fb0f42bd8",
+			"branch": "go1",
+			"path": "/exif"
+		},
+		{
+			"importpath": "github.com/rwcarlsen/goexif/tiff",
+			"repository": "https://github.com/rwcarlsen/goexif",
+			"revision": "709fab3d192d7c62f86043caff1e7e3fb0f42bd8",
+			"branch": "go1",
+			"path": "/tiff"
+		}
+	]
+}
