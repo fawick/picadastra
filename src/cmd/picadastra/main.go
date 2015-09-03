@@ -1,4 +1,3 @@
-// A simpe photocopy hack
 package main
 
 import (
@@ -6,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strings"
@@ -24,16 +24,17 @@ var (
 )
 
 var (
-	srcDir     string
-	dstDir     string
-	verbose    = flag.Bool("v", false, "Print verbose output")
-	dateFormat = flag.String("d", "2006-01-02", "Date Format for directory names")
-	forced     = flag.Bool("f", false, "Overwrite existing files when sizes do not match")
+	srcDir       string
+	dstDir       string
+	verbose      = flag.Bool("v", false, "Print verbose output")
+	superVerbose = flag.Bool("vv", false, "Even report identical files")
+	dateFormat   = flag.String("d", "2006-01-02", "Date Format for directory names")
+	forced       = flag.Bool("f", false, "Overwrite existing files when sizes do not match")
 )
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: photocopy [options] <source dir> <destination dir>\n\nOptions:\n")
+		fmt.Fprintf(os.Stderr, "Usage: picadastra [options] <source dir> <destination dir>\n\nOptions:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\n")
 	}
@@ -49,6 +50,9 @@ func printStatistics() {
 
 func main() {
 	flag.Parse()
+	if *superVerbose {
+		*verbose = true
+	}
 	args := flag.Args()
 	if len(args) == 1 {
 		srcDir = args[0]
@@ -107,6 +111,7 @@ func walkPhotoVideos(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
+// cp copies the file from into to and synchronizes the atime and mtime to be rsync-compatible.
 func cp(from, to string) error {
 	s, err := os.Open(from)
 	if err != nil {
@@ -125,7 +130,30 @@ func cp(from, to string) error {
 		d.Close()
 		return err
 	}
-	return d.Close()
+	if err = d.Close(); err != nil {
+		return err
+	}
+	i, err := os.Stat(from)
+	if err != nil {
+		return err
+	}
+	return os.Chtimes(to, i.ModTime(), i.ModTime())
+}
+
+// merge calls rsync for delta-copying the file. As merge will only be called
+// for large files it should be okay to spawn a subprocess.
+func merge(from, to string) error {
+	r, err := exec.LookPath("rsync")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Warning: rsync not found. Falling back to simple copy")
+		return cp(from, to)
+	}
+	c := exec.Command(r, "-tP", "--inplace", from, to)
+	if *verbose {
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+	}
+	return c.Run()
 }
 
 func datePath(path string) (string, error) {
@@ -155,7 +183,6 @@ func importItem(ci CameraItem) error {
 		if *verbose {
 			fmt.Println("Copying new file:", ci.Path, "==>", d)
 		}
-		// TODO actually perform the copy
 		if err = cp(ci.Path, d); err != nil {
 			return fmt.Errorf("Cannot copy %s: %v", ci.Path, err)
 		}
@@ -166,19 +193,32 @@ func importItem(ci CameraItem) error {
 	}
 	if ci.Size != di.Size() {
 		if *forced {
-			if *verbose {
-				fmt.Println("Overwriting:", ci.Path, "==>", d)
+			if ci.Size > 10*1024*1024 {
+				if *verbose {
+					fmt.Println("Merging:", ci.Path, "==>", d)
+				}
+				if err = merge(ci.Path, d); err != nil {
+					return fmt.Errorf("Cannot merge %s: %v", ci.Path, err)
+				}
+				statistics.merged++
+				return nil
+			} else {
+				if *verbose {
+					fmt.Println("Overwriting:", ci.Path, "==>", d)
+				}
+				if err = cp(ci.Path, d); err != nil {
+					return fmt.Errorf("Cannot copy %s: %v", ci.Path, err)
+				}
+				statistics.overwritten++
 			}
-			if err = cp(ci.Path, d); err != nil {
-				return fmt.Errorf("Cannot copy %s: %v", ci.Path, err)
-			}
-			statistics.overwritten++
 		} else {
 			if *verbose {
 				fmt.Printf("Warning: Skipping %s ==> %s (%d bytes vs %d bytes)\n", ci.Path, d, ci.Size, di.Size())
 			}
 			statistics.skipped++
 		}
+	} else if *superVerbose {
+		fmt.Printf("Already identical %s == %s\n", ci.Path, d)
 	}
 	return nil
 }
@@ -188,6 +228,6 @@ func importPhoto(ci CameraItem) error {
 }
 
 func importVideo(ci CameraItem) error {
-	//return importItem(ci)
+	return importItem(ci)
 	return nil
 }
