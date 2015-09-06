@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cheggaaa/pb"
 	"github.com/rwcarlsen/goexif/exif"
 )
 
@@ -126,7 +127,18 @@ func cp(from, to string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(d, s); err != nil {
+	si, err := os.Stat(from)
+	if err != nil {
+		return err
+	}
+	bar := pb.New(int(si.Size())).SetUnits(pb.U_BYTES).SetRefreshRate(time.Millisecond * 10)
+	bar.SetWidth(78).SetMaxWidth(78)
+	bar.ShowSpeed = true
+	bar.ShowPercent = false
+	bar.Start()
+	defer bar.Finish()
+	writer := io.MultiWriter(d, bar)
+	if _, err := io.Copy(writer, s); err != nil {
 		d.Close()
 		return err
 	}
