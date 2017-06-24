@@ -12,7 +12,7 @@ var sampleFile = "../../../vendor/src/github.com/rwcarlsen/goexif/exif/sample1.j
 
 func BenchmarkDatePath(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		datePath(sampleFile)
+		datePath(sampleFile, defaultDateFormat)
 	}
 }
 
