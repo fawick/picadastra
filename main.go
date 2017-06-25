@@ -149,7 +149,7 @@ func cp(from, to string) error {
 	if err != nil {
 		return err
 	}
-	bar := pb.New(int(si.Size())).SetUnits(pb.U_BYTES).SetRefreshRate(time.Millisecond * 10) // TODO increase refreshrate interval to 100ms
+	bar := pb.New(int(si.Size())).SetUnits(pb.U_BYTES).SetRefreshRate(time.Millisecond * 100)
 	bar.SetWidth(78).SetMaxWidth(78)
 	bar.ShowSpeed = true
 	bar.ShowPercent = false
